@@ -1,0 +1,65 @@
+Bro ab clear ho gaya issue database side me hai ✅
+
+web.log me PostgreSQL migration/database error aa raha hai.
+
+Most probably:
+
+DB permission issue
+old corrupted DB
+Sonar schema create nahi hua properly
+
+Ab clean fix karte hain.
+
+Step 1 — Stop SonarQube
+sudo systemctl stop sonarqube
+Step 2 — Login PostgreSQL
+sudo -u postgres psql
+Step 3 — Delete Old Database
+
+Inside psql run:
+
+DROP DATABASE sonarqube;
+DROP USER sonar;
+Step 4 — Create Fresh DB + User
+CREATE DATABASE sonarqube;
+CREATE USER sonar WITH ENCRYPTED PASSWORD 'sonar123';
+GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonar;
+ALTER DATABASE sonarqube OWNER TO sonar;
+
+Exit:
+
+\q
+Step 5 — Give Schema Permissions
+
+Run:
+
+sudo -u postgres psql -d sonarqube
+
+Then:
+
+GRANT ALL ON SCHEMA public TO sonar;
+ALTER SCHEMA public OWNER TO sonar;
+
+Exit:
+
+\q
+Step 6 — Start SonarQube Again
+sudo systemctl restart sonarqube
+
+Wait 1 minute.
+
+Step 7 — Check Logs
+tail -f /opt/sonarqube/logs/web.log
+
+If you see:
+
+SonarQube is operational
+
+Then open:
+
+http://13.233.161.170:9000
+Step 8 — Verify Port
+sudo ss -tulnp | grep 9000
+
+Interview Importance:
+Yes ✅ Very important practical troubleshooting skill for DevOps interviews and real CI/CD environments.
