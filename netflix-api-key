@@ -1,0 +1,11 @@
+docker build --build-arg TMDB_V3_API_KEY=27e23364a34e9c7bbd1a316cbc15e8e5 -t nasir590/netflix:latest .
+
+docker stop netflix
+
+docker rm netflix
+
+docker run -d --name netflix -p 80:80 nasir590/netflix:latest
+
+
+
+#if you are getting api error in netflix application then run contianer using this
