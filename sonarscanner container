@@ -1,0 +1,9 @@
+# =========================
+# Install Sonar Scanner
+# =========================
+
+RUN wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-7.1.0.4889-linux-x64.zip && \
+    unzip sonar-scanner-7.1.0.4889-linux-x64.zip && \
+    mv sonar-scanner-7.1.0.4889-linux-x64 /opt/sonar-scanner
+
+ENV PATH="$PATH:/opt/sonar-scanner/bin"
