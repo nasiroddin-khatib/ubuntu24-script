@@ -12,15 +12,15 @@ RUN apt-get update && apt-get install -y \
     unzip \
     wget \
     gnupg \
-    software-properties-common \ # if problem then remove this line
-    apt-transport-https \ # if problem then remove this line
+#    software-properties-common \ # if problem then remove this line
+ #   apt-transport-https \ # if problem then remove this line
     ca-certificates \
     lsb-release \
     git \
     nodejs \
     npm \
     docker.io \
-    openjdk-17-jdk # if problem the use default-jdk
+    default-jdk # if problem the use default-jdk
 
 # =========================
 # Install kubectl
