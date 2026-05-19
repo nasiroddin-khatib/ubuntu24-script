@@ -1,0 +1,549 @@
+############################################################
+# PROVIDER
+############################################################
+
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+############################################################
+# VARIABLES
+############################################################
+
+variable "my_ip" {
+  description = "Your public IP with /32"
+  type        = string
+}
+
+variable "key_name" {
+  description = "Existing AWS Key Pair Name"
+  type        = string
+}
+
+variable "db_password" {
+  description = "RDS Password"
+  type        = string
+  sensitive   = true
+}
+
+############################################################
+# GET EXISTING VPC
+############################################################
+
+data "aws_vpc" "main" {
+  filter {
+    name   = "tag:Name"
+    values = ["3-tier-project"]
+  }
+}
+
+############################################################
+# GET EXISTING SUBNETS
+############################################################
+
+data "aws_subnet" "public_1a" {
+  filter {
+    name   = "tag:Name"
+    values = ["PublicSubnet-1a"]
+  }
+}
+
+data "aws_subnet" "public_1b" {
+  filter {
+    name   = "tag:Name"
+    values = ["PublicSubnet-1b"]
+  }
+}
+
+data "aws_subnet" "private_web_1a" {
+  filter {
+    name   = "tag:Name"
+    values = ["PrivateSubnet-Web-1a"]
+  }
+}
+
+data "aws_subnet" "private_web_1b" {
+  filter {
+    name   = "tag:Name"
+    values = ["PrivateSubnet-Web-1b"]
+  }
+}
+
+data "aws_subnet" "private_app_1a" {
+  filter {
+    name   = "tag:Name"
+    values = ["PrivateSubnet-App-1a"]
+  }
+}
+
+data "aws_subnet" "private_app_1b" {
+  filter {
+    name   = "tag:Name"
+    values = ["PrivateSubnet-App-1b"]
+  }
+}
+
+data "aws_subnet" "private_db_1a" {
+  filter {
+    name   = "tag:Name"
+    values = ["PrivateSubnet-Db-1a"]
+  }
+}
+
+data "aws_subnet" "private_db_1b" {
+  filter {
+    name   = "tag:Name"
+    values = ["PrivateSubnet-Db-1b"]
+  }
+}
+
+############################################################
+# GET AMAZON LINUX 2023 AMI
+############################################################
+
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+
+  owners = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
+############################################################
+# SECURITY GROUP 1 - BASTION SG
+############################################################
+
+resource "aws_security_group" "bastion_sg" {
+  name        = "Bastion-SG"
+  description = "Bastion Security Group"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    description = "SSH From My IP"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "Bastion-SG"
+  }
+}
+
+############################################################
+# SECURITY GROUP 2 - WEB ALB SG
+############################################################
+
+resource "aws_security_group" "web_alb_sg" {
+  name        = "WebALB-SG"
+  description = "Web ALB Security Group"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "WebALB-SG"
+  }
+}
+
+############################################################
+# SECURITY GROUP 3 - WEB SG
+############################################################
+
+resource "aws_security_group" "web_sg" {
+  name        = "Web-SG"
+  description = "Web Tier Security Group"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    description     = "HTTP From Web ALB"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.web_alb_sg.id]
+  }
+
+  ingress {
+    description     = "HTTPS From Web ALB"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.web_alb_sg.id]
+  }
+
+  ingress {
+    description     = "SSH From Bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "Web-SG"
+  }
+}
+
+############################################################
+# SECURITY GROUP 4 - APP ALB SG
+############################################################
+
+resource "aws_security_group" "app_alb_sg" {
+  name        = "AppALB-SG"
+  description = "App ALB Security Group"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    description     = "HTTP From Web SG"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.web_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "AppALB-SG"
+  }
+}
+
+############################################################
+# SECURITY GROUP 5 - APP SG
+############################################################
+
+resource "aws_security_group" "app_sg" {
+  name        = "App-SG"
+  description = "Application Security Group"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    description     = "NodeJS Port"
+    from_port       = 3200
+    to_port         = 3200
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app_alb_sg.id]
+  }
+
+  ingress {
+    description     = "SSH From Bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "App-SG"
+  }
+}
+
+############################################################
+# SECURITY GROUP 6 - DATABASE SG
+############################################################
+
+resource "aws_security_group" "database_sg" {
+  name        = "Database-SG"
+  description = "Database Security Group"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    description     = "MySQL From App SG"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app_sg.id]
+  }
+
+  ingress {
+    description     = "MySQL From Bastion"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "Database-SG"
+  }
+}
+
+############################################################
+# IAM ROLE - EC2
+############################################################
+
+resource "aws_iam_role" "ec2_role" {
+  name = "3-tier-ec2-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_cloudwatch_logs" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_cloudwatch_agent" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_codedeploy" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforAWSCodeDeploy"
+}
+
+############################################################
+# IAM INSTANCE PROFILE
+############################################################
+
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "3-tier-ec2-profile"
+  role = aws_iam_role.ec2_role.name
+}
+
+############################################################
+# IAM ROLE - CODEBUILD
+############################################################
+
+resource "aws_iam_role" "codebuild_role" {
+  name = "3-tier-codebuild-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "codebuild.amazonaws.com"
+        }
+
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_s3" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_admin" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_ssm" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_logs" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+}
+
+############################################################
+# IAM ROLE - CODEDEPLOY
+############################################################
+
+resource "aws_iam_role" "codedeploy_role" {
+  name = "3-tier-codedeploy-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "codedeploy.amazonaws.com"
+        }
+
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "codedeploy_main" {
+  role       = aws_iam_role.codedeploy_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+}
+
+resource "aws_iam_role_policy_attachment" "codedeploy_logs" {
+  role       = aws_iam_role.codedeploy_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "codedeploy_agent" {
+  role       = aws_iam_role.codedeploy_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+############################################################
+# BASTION HOST
+############################################################
+
+resource "aws_instance" "bastion_host" {
+  ami                         = data.aws_ami.amazon_linux_2023.id
+  instance_type               = "t2.micro"
+  subnet_id                   = data.aws_subnet.public_1a.id
+  vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
+  associate_public_ip_address = true
+  key_name                    = var.key_name
+  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+
+  tags = {
+    Name = "Bastion-Host"
+  }
+}
+
+############################################################
+# RDS SUBNET GROUP
+############################################################
+
+resource "aws_db_subnet_group" "db_subnet_group" {
+  name = "tier-subnet-group"
+
+  subnet_ids = [
+    data.aws_subnet.private_db_1a.id,
+    data.aws_subnet.private_db_1b.id
+  ]
+
+  tags = {
+    Name = "tier-Subnet-Group"
+  }
+}
+
+############################################################
+# MYSQL RDS
+############################################################
+
+resource "aws_db_instance" "mysql_rds" {
+  identifier             = "dev-db-instance"
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  instance_class         = "db.t3.micro"
+  username               = "admin"
+  password               = var.db_password
+  publicly_accessible    = false
+  skip_final_snapshot    = true
+  multi_az               = false
+  db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
+  vpc_security_group_ids = [aws_security_group.database_sg.id]
+
+  tags = {
+    Name = "dev-db-instance"
+  }
+}
+
+############################################################
+# OUTPUTS
+############################################################
+
+output "bastion_public_ip" {
+  value = aws_instance.bastion_host.public_ip
+}
+
+output "rds_endpoint" {
+  value = aws_db_instance.mysql_rds.endpoint
+}
+
+output "rds_username" {
+  value = aws_db_instance.mysql_rds.username
+}
