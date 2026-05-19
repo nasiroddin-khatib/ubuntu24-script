@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Update system
+sudo dnf update -y
+
+# Install required packages
+sudo dnf install -y yum-utils shadow-utils
+
+# Add HashiCorp repository
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+
+# Install Terraform
+sudo dnf install -y terraform
+
+# Verify installation
+terraform -version
