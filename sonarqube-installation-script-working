@@ -11,7 +11,7 @@ sudo apt update -y
 
 # Install Java 17 + PostgreSQL + utilities
 sudo apt install openjdk-17-jdk unzip wget postgresql postgresql-contrib -y
-
+sudo postgresql-setup --initdb
 # Start PostgreSQL
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
