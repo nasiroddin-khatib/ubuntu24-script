@@ -1,10 +1,33 @@
+# Download Nexus
 wget https://download.sonatype.com/nexus/3/nexus-unix-x86-64-3.79.0-09.tar.gz
+
+# Extract
 tar -zxvf nexus-unix-x86-64-3.79.0-09.tar.gz
-yum install java-17-amazon-corretto -y
+
+# Install Java
+sudo yum install java-17-amazon-corretto -y
+
+# Create nexus user
 sudo useradd nexus
+
+# Move Nexus
 sudo mv nexus-3.79.0-09 /opt/nexus
-sudo mv sonatype-work /opt/sonatype-work
+
+# Create sonatype-work directory
+sudo mkdir -p /opt/sonatype-work
+
+# Give ownership
 sudo chown -R nexus:nexus /opt/nexus
 sudo chown -R nexus:nexus /opt/sonatype-work
-su - nexus
-sudo sh nexus-3.79.0-09/bin/nexus start
+
+# Configure Nexus to run as nexus user
+sudo sed -i 's/^#\?run_as_user=.*/run_as_user="nexus"/' /opt/nexus/bin/nexus.rc
+
+# Switch to nexus user
+sudo su - nexus
+
+# Go to Nexus bin directory
+cd /opt/nexus/bin
+
+# Start Nexus
+./nexus start
