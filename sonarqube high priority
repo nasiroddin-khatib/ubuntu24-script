@@ -151,3 +151,39 @@ echo ""
 echo "Default Login"
 echo "Username: admin"
 echo "Password: admin"
+sudo -u postgres psql
+
+\c sonarqube
+
+GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonar;
+
+GRANT ALL ON SCHEMA public TO sonar;
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO sonar;
+
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO sonar;
+
+ALTER SCHEMA public OWNER TO sonar;
+
+
+\q
+
+
+
+
+sudo systemctl restart sonarqube
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
