@@ -40,7 +40,7 @@ sudo mv /opt/sonarqube-10.5.1.90531 /opt/sonarqube
 sudo chown -R sonar:sonar /opt/sonarqube
 
 # Configure database
-sudo bash -c 'cat >> /opt/sonarqube/conf/sonar.properties <<EOF
+sudo bash -c 'cat >> /opt/sonarqube/sonarqube-10.5.1.90531/conf/sonar.properties <<EOF
 
 sonar.jdbc.username=sonar
 sonar.jdbc.password=sonar123
