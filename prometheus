@@ -1,0 +1,85 @@
+#!/bin/bash
+
+set -e
+
+PROM_VERSION="2.55.1"
+
+echo "Updating packages..."
+sudo apt update
+
+echo "Installing dependencies..."
+sudo apt install -y wget tar
+
+echo "Creating Prometheus user..."
+id prometheus &>/dev/null || sudo useradd --system --no-create-home --shell /usr/sbin/nologin prometheus
+
+echo "Creating directories..."
+sudo mkdir -p /etc/prometheus
+sudo mkdir -p /var/lib/prometheus
+
+cd /tmp
+
+echo "Downloading Prometheus..."
+wget -O prometheus.tar.gz https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.linux-amd64.tar.gz
+
+echo "Extracting..."
+rm -rf prometheus-${PROM_VERSION}.linux-amd64
+tar -xzf prometheus.tar.gz
+
+cd prometheus-${PROM_VERSION}.linux-amd64
+
+echo "Installing binaries..."
+sudo cp prometheus /usr/local/bin/
+sudo cp promtool /usr/local/bin/
+
+echo "Installing configuration..."
+sudo cp prometheus.yml /etc/prometheus/
+
+if [ -d consoles ]; then
+    sudo cp -r consoles /etc/prometheus/
+fi
+
+if [ -d console_libraries ]; then
+    sudo cp -r console_libraries /etc/prometheus/
+fi
+
+sudo chown -R prometheus:prometheus /etc/prometheus
+sudo chown -R prometheus:prometheus /var/lib/prometheus
+
+echo "Creating systemd service..."
+
+sudo tee /etc/systemd/system/prometheus.service >/dev/null <<EOF
+[Unit]
+Description=Prometheus
+After=network.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+
+ExecStart=/usr/local/bin/prometheus \
+--config.file=/etc/prometheus/prometheus.yml \
+--storage.tsdb.path=/var/lib/prometheus
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable prometheus
+sudo systemctl restart prometheus
+
+sleep 3
+
+sudo systemctl --no-pager --full status prometheus
+
+echo
+echo "==========================================="
+echo "Prometheus Installed Successfully"
+echo "Open:"
+echo "http://YOUR_PUBLIC_IP:9090"
+echo "==========================================="
