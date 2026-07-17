@@ -1,0 +1,77 @@
+#!/bin/bash
+
+set -euo pipefail
+
+VERSION="1.9.1"
+
+echo "Updating packages..."
+sudo apt update
+sudo apt install -y wget tar
+
+echo "Creating node_exporter user..."
+if ! id node_exporter >/dev/null 2>&1; then
+    sudo useradd \
+        --system \
+        --no-create-home \
+        --shell /usr/sbin/nologin \
+        node_exporter
+fi
+
+cd /tmp
+
+echo "Cleaning old files..."
+rm -rf node_exporter*
+rm -f node_exporter.tar.gz
+
+echo "Downloading Node Exporter..."
+wget -O node_exporter.tar.gz \
+https://github.com/prometheus/node_exporter/releases/download/v${VERSION}/node_exporter-${VERSION}.linux-amd64.tar.gz
+
+echo "Extracting..."
+tar -xzf node_exporter.tar.gz
+
+cd node_exporter-${VERSION}.linux-amd64
+
+echo "Installing binary..."
+sudo cp node_exporter /usr/local/bin/
+sudo chmod +x /usr/local/bin/node_exporter
+
+echo "Creating systemd service..."
+
+sudo tee /etc/systemd/system/node_exporter.service > /dev/null <<EOF
+[Unit]
+Description=Prometheus Node Exporter
+After=network.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+Type=simple
+
+ExecStart=/usr/local/bin/node_exporter
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Starting service..."
+
+sudo systemctl daemon-reload
+sudo systemctl enable node_exporter
+sudo systemctl restart node_exporter
+
+sleep 3
+
+echo
+echo "========================================"
+sudo systemctl --no-pager status node_exporter
+echo "========================================"
+
+echo
+echo "Installed Successfully"
+echo
+echo "Open:"
+echo "http://YOUR_PUBLIC_IP:9100/metrics"
