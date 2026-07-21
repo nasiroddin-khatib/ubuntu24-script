@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+echo "Updating system..."
+sudo dnf update -y
+
+echo "Installing unzip and wget..."
+sudo dnf install -y unzip wget
+
+PACKER_VERSION="1.14.2"
+
+echo "Downloading Packer..."
+wget https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
+
+echo "Extracting..."
+unzip -o packer_${PACKER_VERSION}_linux_amd64.zip
+
+echo "Installing..."
+sudo mv packer /usr/local/bin/
+
+echo "Cleaning..."
+rm -f packer_${PACKER_VERSION}_linux_amd64.zip
+
+echo "Verifying..."
+packer version
