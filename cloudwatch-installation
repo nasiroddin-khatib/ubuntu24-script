@@ -1,0 +1,66 @@
+#!/bin/bash
+
+set -euo pipefail
+
+echo "======================================="
+echo "Updating package index..."
+echo "======================================="
+sudo apt-get update -y
+
+echo "======================================="
+echo "Installing required packages..."
+echo "======================================="
+sudo apt-get install -y wget
+
+echo "======================================="
+echo "Downloading Amazon CloudWatch Agent..."
+echo "======================================="
+wget -q -O /tmp/amazon-cloudwatch-agent.deb \
+https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+
+echo "======================================="
+echo "Installing Amazon CloudWatch Agent..."
+echo "======================================="
+sudo dpkg -i /tmp/amazon-cloudwatch-agent.deb
+
+echo "======================================="
+echo "Fixing dependencies (if any)..."
+echo "======================================="
+sudo apt-get install -f -y
+
+echo "======================================="
+echo "Enabling CloudWatch Agent service..."
+echo "======================================="
+sudo systemctl enable amazon-cloudwatch-agent
+
+echo "======================================="
+echo "Cleaning up..."
+echo "======================================="
+rm -f /tmp/amazon-cloudwatch-agent.deb
+
+echo "======================================="
+echo "Verifying installation..."
+echo "======================================="
+
+if dpkg -s amazon-cloudwatch-agent >/dev/null 2>&1; then
+    echo "Package Status : Installed"
+    echo "Package Version:"
+    dpkg -s amazon-cloudwatch-agent | grep "^Version"
+else
+    echo "CloudWatch Agent installation failed!"
+    exit 1
+fi
+
+echo "======================================="
+echo "Checking service..."
+echo "======================================="
+systemctl is-enabled amazon-cloudwatch-agent
+
+echo "======================================="
+echo "CloudWatch Agent installed successfully!"
+echo "======================================="
+echo ""
+echo "NOTE:"
+echo "- The agent is installed but not running."
+echo "- This is expected because no configuration has been provided yet."
+echo "- It will be started after the configuration file is added."
