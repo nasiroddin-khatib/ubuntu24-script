@@ -31,7 +31,7 @@ sudo systemctl start postgresql
 
 
 SECRET_JSON=$(aws secretsmanager get-secret-value \
---secret-id server-inventory/sonarqube/database \
+  --secret-id server-inventory/sonarqube/database \
   --query SecretString \
   --output text)
 
@@ -47,27 +47,27 @@ echo "==============================="
 sudo -u postgres psql <<EOF
 
 DROP DATABASE IF EXISTS sonarqube;
-DROP ROLE IF EXISTS sonar;
+DROP ROLE IF EXISTS $SONAR_DB_USER;
 
 CREATE ROLE $SONAR_DB_USER LOGIN PASSWORD '$SONAR_DB_PASSWORD';
 CREATE DATABASE sonarqube OWNER $SONAR_DB_USER;
 
 \c sonarqube
 
-ALTER SCHEMA public OWNER TO sonar;
+ALTER SCHEMA public OWNER TO $SONAR_DB_USER;
 
-GRANT ALL ON SCHEMA public TO sonar;
+GRANT ALL ON SCHEMA public TO $SONAR_DB_USER;
 
-GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonar;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT ALL ON TABLES TO sonar;
+GRANT ALL PRIVILEGES ON DATABASE sonarqube TO $SONAR_DB_USER;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT ALL ON SEQUENCES TO sonar;
+GRANT ALL ON TABLES TO $SONAR_DB_USER;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-GRANT ALL ON FUNCTIONS TO sonar;
+GRANT ALL ON SEQUENCES TO $SONAR_DB_USER;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON FUNCTIONS TO $SONAR_DB_USER;
 
 EOF
 
