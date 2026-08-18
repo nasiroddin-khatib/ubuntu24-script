@@ -38,7 +38,7 @@ sudo -u postgres psql <<EOF
 DROP DATABASE IF EXISTS sonarqube;
 DROP ROLE IF EXISTS sonar;
 
-CREATE ROLE sonar LOGIN PASSWORD 'sonar123';
+CREATE ROLE sonar LOGIN PASSWORD '';
 CREATE DATABASE sonarqube OWNER sonar;
 
 \c sonarqube
@@ -175,11 +175,3 @@ echo "==============================="
 
 sudo systemctl status sonarqube --no-pager
 
-echo
-echo "======================================"
-echo "SonarQube URL:"
-echo "http://<EC2-PUBLIC-IP>:9000"
-echo
-echo "Default Username : admin"
-echo "Default Password : admin"
-echo "======================================"
