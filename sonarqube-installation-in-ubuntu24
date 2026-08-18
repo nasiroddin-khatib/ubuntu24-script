@@ -16,7 +16,7 @@ echo "==============================="
 echo "Installing Java"
 echo "==============================="
 
-sudo apt install -y openjdk-17-jdk wget unzip curl
+sudo apt install -y openjdk-17-jdk wget unzip curl awscli jq 
 
 java -version
 
@@ -29,6 +29,17 @@ sudo apt install -y postgresql postgresql-contrib
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
 
+
+SECRET_JSON=$(aws secretsmanager get-secret-value \
+--secret-id server-inventory/sonarqube/database \
+  --query SecretString \
+  --output text)
+
+SONAR_DB_USER=$(echo "$SECRET_JSON" | jq -r '.username')
+SONAR_DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r '.password')
+
+
+
 echo "==============================="
 echo "Creating Database"
 echo "==============================="
@@ -38,8 +49,8 @@ sudo -u postgres psql <<EOF
 DROP DATABASE IF EXISTS sonarqube;
 DROP ROLE IF EXISTS sonar;
 
-CREATE ROLE sonar LOGIN PASSWORD 'sonar123';
-CREATE DATABASE sonarqube OWNER sonar;
+CREATE ROLE $SONAR_DB_USER LOGIN PASSWORD '$SONAR_DB_PASSWORD';
+CREATE DATABASE sonarqube OWNER $SONAR_DB_USER;
 
 \c sonarqube
 
@@ -98,10 +109,9 @@ echo "==============================="
 
 sudo tee -a /opt/sonarqube/conf/sonar.properties >/dev/null <<EOF
 
-sonar.jdbc.username=sonar
-sonar.jdbc.password=sonar123
+sonar.jdbc.username=$SONAR_DB_USER
+sonar.jdbc.password=$SONAR_DB_PASSWORD
 sonar.jdbc.url=jdbc:postgresql://localhost:5432/sonarqube
-
 EOF
 
 echo "==============================="
