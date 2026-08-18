@@ -38,7 +38,7 @@ sudo -u postgres psql <<EOF
 DROP DATABASE IF EXISTS sonarqube;
 DROP ROLE IF EXISTS sonar;
 
-CREATE ROLE sonar LOGIN PASSWORD '';
+CREATE ROLE sonar LOGIN PASSWORD 'sonar123';
 CREATE DATABASE sonarqube OWNER sonar;
 
 \c sonarqube
